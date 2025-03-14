@@ -9,7 +9,7 @@ export const signUp = async (req, res, next) => {
   session.startTransaction();
 
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, isAdmin } = req.body;
 
     // Check if the user already exists
     const existingUser = await User.findOne({ email });
@@ -25,7 +25,7 @@ export const signUp = async (req, res, next) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const newUsers = await User.create(
-      [{ name, email, password: hashedPassword }],
+      [{ name, email, password: hashedPassword, isAdmin }],
       { session }
     );
 
@@ -50,5 +50,40 @@ export const signUp = async (req, res, next) => {
     next(error);
   }
 };
-export const signIn = async (req, res, next) => {};
+export const signIn = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      const error = new Error("User not found");
+      error.statusCode = 404; //not found
+      throw error;
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      const error = new Error("Invalid Password!");
+      error.statusCode = 401; //unauthorized
+      throw error;
+    }
+
+    const token = jwt.sign({ userId: user._id }, JWT_SECRET, {
+      expiresIn: JWT_EXPIRES_IN,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Successfully signed-in",
+      data: {
+        token,
+        user,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 export const signOut = async (req, res, next) => {};
